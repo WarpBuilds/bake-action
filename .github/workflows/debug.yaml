@@ -1,0 +1,31 @@
+name: Debug WarpBuild Docker Bake Action
+
+on:
+  push:
+    branches:
+      - feat/warpbuild-remote-builder
+  workflow_dispatch:
+
+env:
+  WARPBUILD_API_DOMAIN: "https://api.dev.warpbuild.dev"
+
+jobs:
+  test-multi-warp:
+    name: Debug Run ${{ matrix.run_number }}
+    runs-on: warpdev-ubuntu-latest-x64-2x
+    strategy:
+      matrix:
+        run_number: [1]
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Bake all targets
+        uses: ./
+        with:
+          files: bake.hcl
+          workdir: __tests__
+          profile-name: dev-eph
+
+

@@ -25,6 +25,9 @@ export interface Inputs {
   set: string[];
   source: string;
   'github-token': string;
+  apiKey: string;
+  profileName: string;
+  timeout: string;
 }
 
 export async function getInputs(): Promise<Inputs> {
@@ -42,7 +45,10 @@ export async function getInputs(): Promise<Inputs> {
     sbom: core.getInput('sbom'),
     set: Util.getInputList('set', {ignoreComma: true, quote: false}),
     source: getSourceInput('source'),
-    'github-token': core.getInput('github-token')
+    'github-token': core.getInput('github-token'),
+    apiKey: core.getInput('api-key'),
+    profileName: core.getInput('profile-name'),
+    timeout: core.getInput('timeout')
   };
 }
 

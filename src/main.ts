@@ -19,6 +19,9 @@ import {UploadArtifactResponse} from '@docker/actions-toolkit/lib/types/github';
 
 import * as context from './context';
 import * as stateHelper from './state-helper';
+import {WarpBuildRemoteBuilders} from './warpbuild';
+
+let remoteBuilders: WarpBuildRemoteBuilders;
 
 actionsToolkit.run(
   // main
@@ -30,6 +33,17 @@ actionsToolkit.run(
     stateHelper.setInputs(inputs);
 
     const toolkit = new Toolkit();
+    const parsedTimeout = parseInt(inputs.timeout);
+    remoteBuilders = new WarpBuildRemoteBuilders({
+      apiKey: inputs.apiKey,
+      profileName: inputs.profileName,
+      timeout: parsedTimeout
+    });
+
+    // We don't need to wait for the builder assignment to complete here
+    // because the setupBuilders() method will wait for it if needed
+    remoteBuilders.assignBuilder();
+
     const gitAuthToken = process.env.BUILDX_BAKE_GIT_AUTH_TOKEN ?? inputs['github-token'];
 
     await core.group(`GitHub Actions runtime token ACs`, async () => {
@@ -84,6 +98,8 @@ actionsToolkit.run(
     await core.group(`Buildx version`, async () => {
       await toolkit.buildx.printVersion();
     });
+
+    await remoteBuilders.setupBuilders();
 
     let builder: BuilderInfo;
     await core.group(`Builder info`, async () => {
@@ -206,6 +222,10 @@ actionsToolkit.run(
     if (err) {
       throw err;
     }
+
+    if (remoteBuilders) {
+      remoteBuilders.saveState();
+    }
   },
   // post
   async () => {
@@ -250,6 +270,20 @@ actionsToolkit.run(
         fs.rmSync(stateHelper.tmpDir, {recursive: true});
       });
     }
+
+    const inputs: context.Inputs = await context.getInputs();
+    const parsedTimeout = parseInt(inputs.timeout);
+
+    remoteBuilders = new WarpBuildRemoteBuilders({
+      apiKey: inputs.apiKey,
+      profileName: inputs.profileName,
+      timeout: parsedTimeout
+    });
+
+    remoteBuilders.loadState();
+    await remoteBuilders.removeBuilderInstances();
+    await remoteBuilders.removeBuilderConfiguration();
+    await remoteBuilders.removeCertDirs();
   }
 );
 
