@@ -7,8 +7,8 @@ group "default" {
 }
 
 target "quick-image" {
-  context = "."
-  dockerfile = "Dockerfile"
+  context = "__tests__"
+  dockerfile = "./Dockerfile"
   tags = ["quick-image-run-${RUN_NUMBER}"]
   platforms = ["linux/amd64"]
   output = ["type=docker"]
@@ -19,8 +19,8 @@ target "quick-image" {
 }
 
 target "heavy-image" {
-  context = "."
-  dockerfile = "Dockerfile"
+  context = "__tests__"
+  dockerfile = "./Dockerfile"
   tags = ["heavy-image-run-${RUN_NUMBER}"]
   platforms = ["linux/amd64"]
   output = ["type=docker"]
