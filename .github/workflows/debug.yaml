@@ -24,8 +24,7 @@ jobs:
       - name: Bake all targets
         uses: ./
         with:
-          files: ${{ github.workspace }}/__tests__/bake.hcl
-          workdir: __tests__
+          files: ./__tests__/bake.hcl
           profile-name: dev-eph
 
 
