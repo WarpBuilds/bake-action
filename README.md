@@ -46,7 +46,7 @@ on:
 
 jobs:
   bake:
-    runs-on: ubuntu-latest
+    runs-on: warp-ubuntu-latest-x64-4x
     steps:
       -
         name: Login to DockerHub
@@ -55,15 +55,13 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      -
         name: Build and push
-        uses: docker/bake-action@v6
+        uses: Warpbuilds/bake-action@v6
         with:
           push: true
           set: |
             *.tags=user/app:latest
+          profile-name: super-fast-builder
 ```
 
 Be careful because **any file mutation in the steps that precede the build step
@@ -80,12 +78,13 @@ to the default Git context:
 ```yaml
       -
         name: Build and push
-        uses: docker/bake-action@v6
+        uses: Warpbuilds/bake-action@v6
         with:
           source: "{{defaultContext}}:mysubdir"
           push: true
           set: |
             *.tags=user/app:latest
+          profile-name: super-fast-builder
 ```
 
 Building from the current repository automatically uses the `GITHUB_TOKEN`
@@ -119,7 +118,7 @@ on:
 
 jobs:
   bake:
-    runs-on: ubuntu-latest
+    runs-on: warp-ubuntu-latest-x64-4x
     steps:
       -
         name: Checkout
@@ -131,16 +130,14 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      -
         name: Build and push
-        uses: docker/bake-action@v6
+        uses: Warpbuilds/bake-action@v6
         with:
           source: .
           push: true
           set: |
             *.tags=user/app:latest
+          profile-name: super-fast-builder
 ```
 
 ## Summaries
@@ -213,6 +210,9 @@ The following inputs can be used as `step.with` keys
 | `sbom`         | Bool/String | [SBOM](https://docs.docker.com/build/attestations/sbom/) is a shorthand for `--set=*.attest=type=sbom`                                                             |
 | `set`          | List        | List of [targets values to override](https://docs.docker.com/engine/reference/commandline/buildx_bake/#set) (e.g., `targetpattern.key=value`)                      |
 | `github-token` | String      | API token used to authenticate to a Git repository for [remote definitions](https://docs.docker.com/build/bake/remote-definition/) (default `${{ github.token }}`) |
+| `profile-name` | String      | The profile name to use for the WarpBuild Docker Builders |
+| `api-key`      | String      | The API key for the WarpBuild API. This is not required in case of using WarpBuild runners |
+| `timeout`      | String      | The timeout(in ms) to wait for the Docker Builders to be ready. By default, it is 10 minutes |
 
 ### outputs
 
