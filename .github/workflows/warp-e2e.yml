@@ -11,6 +11,9 @@ on:
       - '**.md'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   bake:
     name: bake on a WarpBuild remote builder
