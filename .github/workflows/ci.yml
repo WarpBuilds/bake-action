@@ -1,5 +1,8 @@
 name: ci
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -46,20 +49,20 @@ jobs:
           - release
     services:
       registry:
-        image: registry:2
+        image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
         ports:
           - 5000:5000
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
       -
         name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -82,7 +85,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Build
         continue-on-error: true
@@ -99,7 +102,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Stop docker
         run: |
@@ -121,12 +124,33 @@ jobs:
             exit 1
           fi
 
+  error-source:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      -
+        name: Build
+        id: bake
+        continue-on-error: true
+        uses: ./
+        with:
+          source: ./does-not-exist
+      -
+        name: Check
+        run: |
+          if [ "${{ steps.bake.outcome }}" != "failure" ] || [ "${{ steps.bake.conclusion }}" != "success" ]; then
+            echo "::error::Should have failed"
+            exit 1
+          fi
+
   standalone:
     runs-on: ubuntu-latest
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Uninstall docker cli
         run: |
@@ -137,7 +161,7 @@ jobs:
           fi
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -155,7 +179,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Build
         uses: ./
@@ -177,10 +201,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -190,8 +214,7 @@ jobs:
         name: Build
         uses: ./
         with:
-          workdir: ./test/go
-          source: .
+          source: ./test/go
           targets: binary
           provenance: ${{ matrix.attrs }}
           set: |
@@ -213,16 +236,16 @@ jobs:
             output: /tmp/bake-build
     services:
       registry:
-        image: registry:2
+        image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
         ports:
           - 5000:5000
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -232,8 +255,7 @@ jobs:
         name: Build
         uses: ./
         with:
-          workdir: ./test/go
-          source: .
+          source: ./test/go
           targets: ${{ matrix.target }}
           sbom: true
           set: |
@@ -268,19 +290,18 @@ jobs:
     runs-on: ubuntu-latest
     services:
       registry:
-        image: registry:2
+        image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
         ports:
           - 5000:5000
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Build
         uses: ./
         with:
-          workdir: ./test/go
-          source: .
+          source: ./test/go
           set: |
             *.platform=linux/amd64
             *.output=type=image,"name=localhost:5000/name/app:v1.0.0,localhost:5000/name/app:latest",push=true
@@ -290,16 +311,16 @@ jobs:
     runs-on: ubuntu-latest
     services:
       registry:
-        image: registry:2
+        image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
         ports:
           - 5000:5000
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -309,8 +330,7 @@ jobs:
         name: Build and push
         uses: ./
         with:
-          workdir: ./test/group
-          source: .
+          source: ./test/group
           push: true
           set: |
             t1.tags=localhost:5000/name/app:t1
@@ -321,7 +341,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set malformed docker config
         run: |
@@ -339,7 +359,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       squid-proxy:
-        image: ubuntu/squid:latest
+        image: ubuntu/squid:latest@sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029
         ports:
           - 3128:3128
     steps:
@@ -350,7 +370,7 @@ jobs:
           curl --retry 5 --retry-all-errors --retry-delay 0 --connect-timeout 5 --proxy http://127.0.0.1:3128 -v --insecure --head https://www.google.com
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set proxy config
         run: |
@@ -358,7 +378,7 @@ jobs:
           echo '{"proxies":{"default":{"httpProxy":"http://127.0.0.1:3128","httpsProxy":"http://127.0.0.1:3128"}}}' > ~/.docker/config.json
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -378,7 +398,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       squid-proxy:
-        image: ubuntu/squid:latest
+        image: ubuntu/squid:latest@sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029
         ports:
           - 3128:3128
     steps:
@@ -389,10 +409,10 @@ jobs:
           curl --retry 5 --retry-all-errors --retry-delay 0 --connect-timeout 5 --proxy http://127.0.0.1:3128 -v --insecure --head https://www.google.com
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -414,10 +434,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -425,16 +445,41 @@ jobs:
       -
         name: Build
         uses: ./
+        with:
+          files: |
+            ./test/config.hcl
+
+  git-context-query:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+        with:
+          version: v0.33.0
+          driver-opts: |
+            image=${{ inputs.buildkit-image || env.BUILDKIT_IMAGE }}
+      -
+        name: Build
+        uses: ./
+        with:
+          files: |
+            ./test/config.hcl
+        env:
+          BUILDX_SEND_GIT_QUERY_AS_INPUT: true
 
   git-context-and-local:
     runs-on: ubuntu-latest
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -442,28 +487,29 @@ jobs:
       -
         name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
       -
         name: Build
         uses: ./
         with:
           files: |
+            ./test/config.hcl
             cwd://${{ steps.meta.outputs.bake-file }}
 
   multi-output:
     runs-on: ubuntu-latest
     services:
       registry:
-        image: registry:2
+        image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
         ports:
           - 5000:5000
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -472,8 +518,7 @@ jobs:
         name: Build and push
         uses: ./
         with:
-          workdir: ./test/go
-          source: .
+          source: ./test/go
           set: |
             *.output=type=image,name=localhost:5000/name/app:latest,push=true
             *.output=type=docker,name=app:local
@@ -498,16 +543,16 @@ jobs:
     runs-on: ubuntu-latest
     services:
       registry:
-        image: registry:2
+        image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
         ports:
           - 5000:5000
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -516,8 +561,7 @@ jobs:
         name: Build and push
         uses: ./
         with:
-          workdir: ./test/go
-          source: .
+          source: ./test/go
           targets: image
           load: true
           push: true
@@ -537,10 +581,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -555,39 +599,15 @@ jobs:
         env:
           DOCKER_BUILD_SUMMARY: false
 
-  summary-disable-deprecated:
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v6
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
-          driver-opts: |
-            image=${{ inputs.buildkit-image || env.BUILDKIT_IMAGE }}
-      -
-        name: Build
-        uses: ./
-        with:
-          source: .
-          files: |
-            ./test/config.hcl
-          targets: app
-        env:
-          DOCKER_BUILD_NO_SUMMARY: true
-
   summary-not-supported:
     runs-on: ubuntu-latest
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: v0.12.1
           driver-opts: |
@@ -605,10 +625,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -634,10 +654,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -652,35 +672,6 @@ jobs:
         env:
           DOCKER_BUILD_RECORD_RETENTION_DAYS: ${{ matrix.days }}
 
-  export-legacy:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        legacy:
-          - false
-          - true
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v6
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
-          driver-opts: |
-            image=${{ inputs.buildkit-image || env.BUILDKIT_IMAGE }}
-      -
-        name: Build
-        uses: ./
-        with:
-          files: |
-            ./test/config.hcl
-          targets: app
-        env:
-          DOCKER_BUILD_EXPORT_LEGACY: ${{ matrix.legacy }}
-
   checks:
     runs-on: ubuntu-latest
     strategy:
@@ -692,10 +683,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ matrix.buildx-version }}
           driver-opts: |
@@ -704,8 +695,7 @@ jobs:
         name: Build
         uses: ./
         with:
-          workdir: ./test
-          source: .
+          source: ./test
           files: |
             ./lint.hcl
 
@@ -714,10 +704,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -726,8 +716,7 @@ jobs:
         name: Build
         uses: ./
         with:
-          workdir: ./test
-          source: .
+          source: ./test
           files: |
             ./lint.hcl
         env:
@@ -746,10 +735,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ matrix.buildx-version }}
           driver-opts: |
@@ -768,7 +757,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Build
         uses: ./
@@ -784,10 +773,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -798,8 +787,7 @@ jobs:
         continue-on-error: true
         uses: ./
         with:
-          workdir: ./test
-          source: .
+          source: ./test
           files: |
             ./lint.hcl
           call: check
@@ -817,10 +805,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -831,8 +819,7 @@ jobs:
         continue-on-error: true
         uses: ./
         with:
-          workdir: ./test
-          source: .
+          source: ./test
           files: |
             ./lint.hcl
           call: check
@@ -849,10 +836,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -873,10 +860,10 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         with:
           version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
           driver-opts: |
@@ -885,5 +872,31 @@ jobs:
         name: Build and push
         uses: ./
         with:
-          workdir: ./test/attest
-          source: .
+          source: ./test/attest
+
+  var:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+        with:
+          version: ${{ inputs.buildx-version || env.BUILDX_VERSION }}
+          driver-opts: |
+            image=${{ inputs.buildkit-image || env.BUILDKIT_IMAGE }}
+      -
+        name: Build
+        uses: ./
+        with:
+          source: ./test/go
+          targets: binary
+          vars: |
+            DESTDIR=/tmp/build
+      -
+        name: Check output folder
+        working-directory: /tmp/build
+        run: |
+          tree .

@@ -1,8 +1,8 @@
 import * as core from '@actions/core';
 
-import {BakeDefinition} from '@docker/actions-toolkit/lib/types/buildx/bake';
+import {BakeDefinition} from '@docker/actions-toolkit/lib/types/buildx/bake.js';
 
-import {Inputs} from './context';
+import {Inputs} from './context.js';
 
 export const tmpDir = process.env['STATE_tmpDir'] || '';
 
@@ -40,8 +40,11 @@ export function setSummarySupported() {
 
 export function setSummaryInputs(inputs: Inputs) {
   const res = {};
+  if (inputs.source.remoteRef || inputs.source.workdir) {
+    res['source'] = inputs.source.remoteRef || inputs.source.workdir;
+  }
   for (const key of Object.keys(inputs)) {
-    if (key === 'github-token') {
+    if (key === 'source' || key === 'github-token') {
       continue;
     }
     const value: string | string[] | boolean = inputs[key];
