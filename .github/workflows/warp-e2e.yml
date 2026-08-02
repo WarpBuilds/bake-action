@@ -1,0 +1,39 @@
+name: warp-e2e
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  bake:
+    name: bake on a WarpBuild remote builder
+    runs-on: warp-ubuntu-latest-x64-4x
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # No api-key: on a WarpBuild runner the action authenticates with
+      # WARPBUILD_RUNNER_VERIFICATION_TOKEN. No WARPBUILD_API_DOMAIN either,
+      # so the client uses its default of https://api.warpbuild.com.
+      - name: Bake
+        uses: ./
+        with:
+          files: ./__tests__/warp-e2e.hcl
+          profile-name: super-fast-builder
+
+      - name: Assert the build ran on a remote builder, not a local one
+        shell: bash
+        run: |
+          docker buildx inspect | tee /tmp/builder.txt
+          grep -qiE '^name:[[:space:]]+builder-' /tmp/builder.txt \
+            || { echo "current builder is not the one this action created"; exit 1; }
+          grep -qiE '^driver:[[:space:]]+remote' /tmp/builder.txt \
+            || { echo "expected the remote driver; the build did not use WarpBuild"; exit 1; }
+          grep -qE 'tcp://' /tmp/builder.txt \
+            || { echo "expected a tcp:// endpoint on the builder node"; exit 1; }
