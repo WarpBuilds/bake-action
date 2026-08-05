@@ -27,10 +27,13 @@ jobs:
       # WARPBUILD_RUNNER_VERIFICATION_TOKEN. No WARPBUILD_API_DOMAIN either,
       # so the client uses its default of https://api.warpbuild.com.
       - name: Bake
+        id: bake
         uses: ./
         with:
           files: ./__tests__/warp-e2e.hcl
           profile-name: super-fast-builder
+          set: |
+            default.args.MARKER=warp-e2e
 
       - name: Assert the build ran on a remote builder, not a local one
         shell: bash
@@ -42,3 +45,33 @@ jobs:
             || { echo "expected the remote driver; the build did not use WarpBuild"; exit 1; }
           grep -qE 'tcp://' /tmp/builder.txt \
             || { echo "expected a tcp:// endpoint on the builder node"; exit 1; }
+
+      # Builder profiles cache layers automatically, so an identical rebake
+      # must reuse them and produce the same image digest.
+      - name: Bake again
+        id: rebake
+        uses: ./
+        with:
+          files: ./__tests__/warp-e2e.hcl
+          profile-name: super-fast-builder
+          set: |
+            default.args.MARKER=warp-e2e
+
+      - name: Assert layer reuse produced an identical image
+        shell: bash
+        env:
+          FIRST: ${{ steps.bake.outputs.metadata }}
+          SECOND: ${{ steps.rebake.outputs.metadata }}
+        run: |
+          a=$(printf '%s' "$FIRST"  | jq -r '.default["containerimage.digest"] // empty')
+          b=$(printf '%s' "$SECOND" | jq -r '.default["containerimage.digest"] // empty')
+          echo "first:  $a"
+          echo "second: $b"
+          if [ -z "$a" ]; then
+            echo "bake produced no containerimage.digest in its metadata"
+            exit 1
+          fi
+          if [ "$a" != "$b" ]; then
+            echo "identical rebake produced a different digest; layers were not reused"
+            exit 1
+          fi
