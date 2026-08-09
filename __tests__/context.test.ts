@@ -1,124 +1,92 @@
-import {afterEach, beforeEach, describe, expect, jest, test} from '@jest/globals';
+import {afterEach, beforeEach, describe, expect, test, vi} from 'vitest';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
-import {Bake} from '@docker/actions-toolkit/lib/buildx/bake';
-import {Builder} from '@docker/actions-toolkit/lib/buildx/builder';
-import {Buildx} from '@docker/actions-toolkit/lib/buildx/buildx';
-import {Context} from '@docker/actions-toolkit/lib/context';
-import {Docker} from '@docker/actions-toolkit/lib/docker/docker';
-import {GitHub} from '@docker/actions-toolkit/lib/github';
-import {Toolkit} from '@docker/actions-toolkit/lib/toolkit';
+import {Bake} from '@docker/actions-toolkit/lib/buildx/bake.js';
+import {Build} from '@docker/actions-toolkit/lib/buildx/build.js';
+import {Builder} from '@docker/actions-toolkit/lib/buildx/builder.js';
+import {Buildx} from '@docker/actions-toolkit/lib/buildx/buildx.js';
+import {Docker} from '@docker/actions-toolkit/lib/docker/docker.js';
+import {Toolkit} from '@docker/actions-toolkit/lib/toolkit.js';
 
-import {BakeDefinition} from '@docker/actions-toolkit/lib/types/buildx/bake';
-import {BuilderInfo} from '@docker/actions-toolkit/lib/types/buildx/builder';
-import {GitHubRepo} from '@docker/actions-toolkit/lib/types/github';
+import {BakeDefinition} from '@docker/actions-toolkit/lib/types/buildx/bake.js';
+import {BuilderInfo} from '@docker/actions-toolkit/lib/types/buildx/builder.js';
 
-import * as context from '../src/context';
+import * as context from '../src/context.js';
 
-const tmpDir = path.join('/tmp', '.docker-bake-action-jest');
-const tmpName = path.join(tmpDir, '.tmpname-jest');
+const tmpDir = fs.mkdtempSync(path.join(process.env.TEMP || os.tmpdir(), 'context-'));
+const fixturesDir = path.join(__dirname, 'fixtures');
 
-import repoFixture from './fixtures/github-repo.json';
-jest.spyOn(GitHub.prototype, 'repoData').mockImplementation((): Promise<GitHubRepo> => {
-  return <Promise<GitHubRepo>>(repoFixture as unknown);
-});
-
-jest.spyOn(Context, 'tmpDir').mockImplementation((): string => {
-  if (!fs.existsSync(tmpDir)) {
-    fs.mkdirSync(tmpDir, {recursive: true});
-  }
-  return tmpDir;
-});
-
-jest.spyOn(Context, 'tmpName').mockImplementation((): string => {
-  return tmpName;
-});
-
-jest.spyOn(Docker, 'isAvailable').mockImplementation(async (): Promise<boolean> => {
+vi.spyOn(Docker, 'isAvailable').mockImplementation(async (): Promise<boolean> => {
   return true;
 });
 
 const metadataJson = path.join(tmpDir, 'metadata.json');
-jest.spyOn(Bake.prototype, 'getMetadataFilePath').mockImplementation((): string => {
+vi.spyOn(Bake.prototype, 'getMetadataFilePath').mockImplementation((): string => {
   return metadataJson;
 });
 
-jest.spyOn(Builder.prototype, 'inspect').mockImplementation(async (): Promise<BuilderInfo> => {
+type BuilderInfoFixture = Omit<BuilderInfo, 'lastActivity'> & {lastActivity: string};
+const builderInfoFixture = <BuilderInfoFixture>JSON.parse(fs.readFileSync(path.join(fixturesDir, 'builder-info.json'), {encoding: 'utf-8'}).trim());
+vi.spyOn(Builder.prototype, 'inspect').mockImplementation(async (): Promise<BuilderInfo> => {
   return {
-    name: 'builder2',
-    driver: 'docker-container',
-    lastActivity: new Date('2023-01-16 09:45:23 +0000 UTC'),
-    nodes: [
-      {
-        buildkit: 'v0.11.0',
-        'buildkitd-flags': '--debug --allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host',
-        'driver-opts': ['BUILDKIT_STEP_LOG_MAX_SIZE=10485760', 'BUILDKIT_STEP_LOG_MAX_SPEED=10485760', 'JAEGER_TRACE=localhost:6831', 'image=moby/buildkit:latest', 'network=host'],
-        endpoint: 'unix:///var/run/docker.sock',
-        name: 'builder20',
-        platforms: 'linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/riscv64,linux/ppc64le,linux/s390x,linux/386,linux/mips64le,linux/mips64,linux/arm/v7,linux/arm/v6',
-        status: 'running'
-      }
-    ]
+    ...builderInfoFixture,
+    lastActivity: new Date(builderInfoFixture.lastActivity)
   };
 });
 
-jest.spyOn(Bake.prototype, 'getDefinition').mockImplementation(async (): Promise<BakeDefinition> => {
-  return JSON.parse(`{
-    "group": {
-      "default": {
-        "targets": [
-          "validate"
-        ]
-      },
-      "validate": {
-        "targets": [
-          "lint",
-          "validate-vendor",
-          "validate-docs"
-        ]
+vi.spyOn(Bake.prototype, 'getDefinition').mockImplementation(async (): Promise<BakeDefinition> => {
+  return <BakeDefinition>JSON.parse(fs.readFileSync(path.join(fixturesDir, 'bake-def.json'), {encoding: 'utf-8'}).trim());
+});
+
+describe('getInputs', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = Object.keys(process.env).reduce((object, key) => {
+      if (!key.startsWith('INPUT_')) {
+        object[key] = process.env[key];
       }
-    },
-    "target": {
-      "lint": {
-        "context": ".",
-        "dockerfile": "./hack/dockerfiles/lint.Dockerfile",
-        "args": {
-          "BUILDKIT_CONTEXT_KEEP_GIT_DIR": "1",
-          "GO_VERSION": "1.20"
-        },
-        "output": [
-          "type=cacheonly"
-        ]
-      },
-      "validate-docs": {
-        "context": ".",
-        "dockerfile": "./hack/dockerfiles/docs.Dockerfile",
-        "args": {
-          "BUILDKIT_CONTEXT_KEEP_GIT_DIR": "1",
-          "BUILDX_EXPERIMENTAL": "1",
-          "FORMATS": "md",
-          "GO_VERSION": "1.20"
-        },
-        "target": "validate",
-        "output": [
-          "type=cacheonly"
-        ]
-      },
-      "validate-vendor": {
-        "context": ".",
-        "dockerfile": "./hack/dockerfiles/vendor.Dockerfile",
-        "args": {
-          "BUILDKIT_CONTEXT_KEEP_GIT_DIR": "1",
-          "GO_VERSION": "1.20"
-        },
-        "target": "validate",
-        "output": [
-          "type=cacheonly"
-        ]
-      }
-    }
-  }`) as BakeDefinition;
+      return object;
+    }, {});
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  function setRequiredBooleanInputs(): void {
+    setInput('no-cache', 'false');
+    setInput('pull', 'false');
+    setInput('load', 'false');
+    setInput('push', 'false');
+  }
+
+  test('uses Build git context when source input is empty', async () => {
+    const gitContext = 'https://github.com/docker/bake-action.git?ref=refs/heads/master&checksum=0123456789abcdef';
+    const gitContextSpy = vi.spyOn(Build.prototype, 'gitContext').mockResolvedValue(gitContext);
+    setRequiredBooleanInputs();
+    const inputs = await context.getInputs();
+    expect(inputs.source).toEqual({
+      remoteRef: gitContext
+    });
+    expect(gitContextSpy).toHaveBeenCalledTimes(1);
+    gitContextSpy.mockRestore();
+  });
+
+  test('renders defaultContext source templates from Build git context', async () => {
+    const gitContext = 'https://github.com/docker/bake-action.git#refs/heads/master';
+    const gitContextSpy = vi.spyOn(Build.prototype, 'gitContext').mockResolvedValue(gitContext);
+    setRequiredBooleanInputs();
+    setInput('source', '{{defaultContext}}:subdir');
+    const inputs = await context.getInputs();
+    expect(inputs.source).toEqual({
+      remoteRef: `${gitContext}:subdir`
+    });
+    expect(gitContextSpy).toHaveBeenCalledTimes(1);
+    gitContextSpy.mockRestore();
+  });
 });
 
 describe('getArgs', () => {
@@ -218,9 +186,9 @@ describe('getArgs', () => {
       [
         'bake',
         '--metadata-file', metadataJson,
-        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
       ],
       undefined
     ],
@@ -238,7 +206,7 @@ describe('getArgs', () => {
       [
         'bake',
         '--metadata-file', metadataJson,
-        "--provenance", `builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`
+        "--provenance", `builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`
       ],
       undefined
     ],
@@ -256,7 +224,7 @@ describe('getArgs', () => {
       [
         'bake',
         '--metadata-file', metadataJson,
-        "--provenance", `mode=max,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`
+        "--provenance", `mode=max,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`
       ],
       undefined
     ],
@@ -313,9 +281,9 @@ describe('getArgs', () => {
         '--set', '*.platform=linux/amd64,linux/ppc64le,linux/s390x',
         '--set', `*.output=type=image,"name=moby/buildkit:v0.11.0,moby/buildkit:latest",push=true`,
         '--metadata-file', metadataJson,
-        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
         'image-all'
       ],
       undefined
@@ -336,9 +304,9 @@ describe('getArgs', () => {
         'bake',
         '--set', `*.labels.foo=bar=#baz`,
         '--metadata-file', metadataJson,
-        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
         'image-all'
       ],
       undefined
@@ -355,12 +323,12 @@ describe('getArgs', () => {
       ]),
       [
         'bake',
-        'https://github.com/docker/build-push-action.git#refs/heads/master',
+        'https://github.com/docker/bake-action.git#refs/heads/master',
         '--file', './foo.hcl',
         '--metadata-file', metadataJson,
-        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`
       ],
       undefined
     ],
@@ -379,9 +347,9 @@ describe('getArgs', () => {
         'bake',
         '--allow', 'network.host',
         '--metadata-file', metadataJson,
-        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`
       ],
       undefined
     ],
@@ -398,12 +366,12 @@ describe('getArgs', () => {
       ]),
       [
         'bake',
-        'https://github.com/docker/build-push-action.git#refs/heads/master:subdir',
+        'https://github.com/docker/bake-action.git#refs/heads/master:subdir',
         '--file', './foo.hcl',
         '--metadata-file', metadataJson,
-        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`,
-        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/build-push-action/actions/runs/123456789/attempts/1`
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`
       ],
       undefined
     ],
@@ -425,8 +393,56 @@ describe('getArgs', () => {
         ['BUILDX_NO_DEFAULT_ATTESTATIONS', '1']
       ])
     ],
+    [
+      15,
+      '0.29.0',
+      new Map<string, string>([
+        ['load', 'false'],
+        ['no-cache', 'false'],
+        ['push', 'false'],
+        ['pull', 'false'],
+        ['files', './foo.hcl'],
+      ]),
+      [
+        'bake',
+        'https://github.com/docker/bake-action.git?ref=refs/heads/master',
+        '--allow', 'fs=*',
+        '--file', './foo.hcl',
+        '--metadata-file', metadataJson,
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`
+      ],
+      new Map<string, string>([
+        ['BUILDX_SEND_GIT_QUERY_AS_INPUT', 'true']
+      ])
+    ],
+    [
+      16,
+      '0.28.0',
+      new Map<string, string>([
+        ['load', 'false'],
+        ['no-cache', 'false'],
+        ['push', 'false'],
+        ['pull', 'false'],
+        ['files', './foo.hcl'],
+      ]),
+      [
+        'bake',
+        'https://github.com/docker/bake-action.git#refs/heads/master',
+        '--allow', 'fs=*',
+        '--file', './foo.hcl',
+        '--metadata-file', metadataJson,
+        '--set', `lint.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-docs.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`,
+        '--set', `validate-vendor.attest=type=provenance,mode=min,inline-only=true,builder-id=https://github.com/docker/bake-action/actions/runs/123456789/attempts/1`
+      ],
+      new Map<string, string>([
+        ['BUILDX_SEND_GIT_QUERY_AS_INPUT', 'true']
+      ])
+    ],
   ])(
-    '[%d] given %p with %p as inputs, returns %p',
+    '[%d] given %o with %o as inputs, returns %o',
     async (num: number, buildxVersion: string, inputs: Map<string, string>, expected: Array<string>, envs: Map<string, string> | undefined) => {
       if (envs) {
         envs.forEach((value: string, name: string) => {
@@ -437,7 +453,7 @@ describe('getArgs', () => {
         setInput(name, value);
       });
       const toolkit = new Toolkit();
-      jest.spyOn(Buildx.prototype, 'version').mockImplementation(async (): Promise<string> => {
+      vi.spyOn(Buildx.prototype, 'version').mockImplementation(async (): Promise<string> => {
         return buildxVersion;
       });
       const inp = await context.getInputs();
@@ -450,11 +466,11 @@ describe('getArgs', () => {
           provenance: inp.provenance,
           push: inp.push,
           sbom: inp.sbom,
-          source: inp.source,
+          source: inp.source.remoteRef,
           targets: inp.targets
         },
         {
-          cwd: inp.workdir
+          cwd: inp.source.workdir,
         }
       );
       const res = await context.getArgs(inp, definition, toolkit);

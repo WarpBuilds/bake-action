@@ -1,5 +1,8 @@
 name: ci-subaction
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,56 +28,6 @@ on:
       - 'test/**'
 
 jobs:
-  list-targets:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          -
-            testdir: group
-            expected: >
-              ["t1","t2"]
-          -
-            testdir: group-matrix
-            target: validate
-            expected: >
-              ["lint-default","lint-labs","lint-nydus","lint-proto","lint-yaml","validate-doctoc","validate-vendor"]
-          -
-            testdir: multi-files
-            files: |
-              docker-bake.json
-              docker-bake.hcl
-            expected: >
-              ["v1-tag","v2-tag"]
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v6
-      -
-        name: Matrix gen
-        id: gen
-        uses: ./subaction/list-targets
-        with:
-          workdir: ./test/${{ matrix.testdir }}
-          files: ${{ matrix.files }}
-          target: ${{ matrix.target }}
-      -
-        name: Check output
-        uses: actions/github-script@v8
-        env:
-          INPUT_TARGETS: ${{ steps.gen.outputs.targets }}
-          INPUT_EXPECTED: ${{ matrix.expected }}
-        with:
-          script: |
-            const targets = JSON.stringify(JSON.parse(core.getInput('targets')));
-            const expected = JSON.stringify(JSON.parse(core.getInput('expected')));
-            if (targets !== expected) {
-              throw new Error(`Targets do not match expected values: ${targets} != ${expected}`);
-            } else {
-              core.info(`✅`);
-            }
-
   matrix:
     runs-on: ubuntu-latest
     strategy:
@@ -110,7 +63,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       -
         name: Matrix gen
         id: gen
@@ -121,7 +74,7 @@ jobs:
           fields: ${{ matrix.fields }}
       -
         name: Check output
-        uses: actions/github-script@v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           INPUT_MATRIX: ${{ steps.gen.outputs.matrix }}
           INPUT_EXPECTED: ${{ matrix.expected }}

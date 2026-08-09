@@ -31,7 +31,7 @@ interface AssignBuilderResponse {
   builder_instances: BuilderInstance[];
 }
 
-interface BuilderDetailsResponse extends BuilderInstance {}
+type BuilderDetailsResponse = BuilderInstance;
 
 interface CleanupState {
   builderName: string;
@@ -116,17 +116,17 @@ export class WarpBuildRemoteBuilders {
   }
 
   /**
-     * Get request context from github action job environment variables
-     * 
-     * @returns {Object}
-     */
+   * Get request context from github action job environment variables
+   *
+   * @returns {Object}
+   */
   public getRequestContext() {
     return {
-        runner_name: process.env.RUNNER_NAME,
-        github_job_id: process.env.GITHUB_JOB,
-        run_id: process.env.GITHUB_RUN_ID,
-        run_attempt: process.env.GITHUB_RUN_ATTEMPT,
-        repo: process.env.GITHUB_REPOSITORY,
+      runner_name: process.env.RUNNER_NAME,
+      github_job_id: process.env.GITHUB_JOB,
+      run_id: process.env.GITHUB_RUN_ID,
+      run_attempt: process.env.GITHUB_RUN_ATTEMPT,
+      repo: process.env.GITHUB_REPOSITORY
     };
   }
 
@@ -138,14 +138,14 @@ export class WarpBuildRemoteBuilders {
       try {
         await execAsync('which jq');
         core.debug('✓ jq is installed');
-      } catch (error) {
+      } catch {
         throw new Error('jq is not installed. Please install jq to use this action.');
       }
 
       try {
         await execAsync('which curl');
         core.debug('✓ curl is installed');
-      } catch (error) {
+      } catch {
         throw new Error('curl is not installed. Please install curl to use this action.');
       }
     });
@@ -502,7 +502,7 @@ export class WarpBuildRemoteBuilders {
     for (const builderInstance of this.builderInstances) {
       let retryCount = 0;
       const maxRetries = 2;
-      
+
       while (retryCount <= maxRetries) {
         try {
           core.info(`Removing builder instance ${builderInstance.id} request ${builderInstance.request_id}${retryCount > 0 ? ` (retry ${retryCount})` : ''}`);
@@ -512,9 +512,8 @@ export class WarpBuildRemoteBuilders {
           const response = await fetch(removeBuilderEndpoint, {
             method: 'POST',
             headers: {Authorization: authHeader},
-            body: JSON.stringify({request_id: builderInstance.request_id, external_unique_id: this.idempotencyKey })
-          },
-        );
+            body: JSON.stringify({request_id: builderInstance.request_id, external_unique_id: this.idempotencyKey})
+          });
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({message: 'Unknown error'}));

@@ -1,19 +1,22 @@
+import * as fs from 'fs';
 import * as core from '@actions/core';
 import * as handlebars from 'handlebars';
 
-import { Bake } from '@docker/actions-toolkit/lib/buildx/bake';
-import { Build } from '@docker/actions-toolkit/lib/buildx/build';
-import { Context } from '@docker/actions-toolkit/lib/context';
-import { GitHub } from '@docker/actions-toolkit/lib/github';
-import { Toolkit } from '@docker/actions-toolkit/lib/toolkit';
-import { Util } from '@docker/actions-toolkit/lib/util';
+import {Bake} from '@docker/actions-toolkit/lib/buildx/bake.js';
+import {Build} from '@docker/actions-toolkit/lib/buildx/build.js';
+import {GitHub} from '@docker/actions-toolkit/lib/github/github.js';
+import {Toolkit} from '@docker/actions-toolkit/lib/toolkit.js';
+import {Util} from '@docker/actions-toolkit/lib/util.js';
 
-import { BakeDefinition } from '@docker/actions-toolkit/lib/types/buildx/bake';
+import {BakeDefinition} from '@docker/actions-toolkit/lib/types/buildx/bake.js';
+
+export interface BakeContext {
+  remoteRef?: string;
+  workdir?: string;
+}
 
 export interface Inputs {
   builder: string;
-  workdir: string;
-  source: string;
   allow: string[];
   call: string;
   files: string[];
@@ -24,7 +27,9 @@ export interface Inputs {
   push: boolean;
   sbom: string;
   set: string[];
+  source: BakeContext;
   targets: string[];
+  vars: string[];
   'github-token': string;
   apiKey: string;
   profileName: string;
@@ -34,8 +39,6 @@ export interface Inputs {
 export async function getInputs(): Promise<Inputs> {
   return {
     builder: core.getInput('builder'),
-    workdir: core.getInput('workdir') || '.',
-    source: getSourceInput('source'),
     allow: Util.getInputList('allow'),
     call: core.getInput('call'),
     files: Util.getInputList('files'),
@@ -45,8 +48,10 @@ export async function getInputs(): Promise<Inputs> {
     provenance: Build.getProvenanceInput('provenance'),
     push: core.getBooleanInput('push'),
     sbom: core.getInput('sbom'),
-    set: Util.getInputList('set', { ignoreComma: true, quote: false }),
+    set: Util.getInputList('set', {ignoreComma: true, quote: false}),
+    source: await getBakeContext(core.getInput('source')),
     targets: Util.getInputList('targets'),
+    vars: Util.getInputList('vars', {ignoreComma: true, quote: false}),
     'github-token': core.getInput('github-token'),
     apiKey: core.getInput('api-key'),
     profileName: core.getInput('profile-name'),
@@ -65,30 +70,38 @@ export async function getArgs(inputs: Inputs, definition: BakeDefinition, toolki
 
 async function getBakeArgs(inputs: Inputs, definition: BakeDefinition, toolkit: Toolkit): Promise<Array<string>> {
   const args: Array<string> = ['bake'];
-  if (inputs.source) {
-    args.push(inputs.source);
+  if (inputs.source.remoteRef) {
+    args.push(inputs.source.remoteRef);
   }
   if (await toolkit.buildx.versionSatisfies('>=0.17.0')) {
     if (await toolkit.buildx.versionSatisfies('>=0.18.0')) {
       // allow filesystem entitlements by default
       inputs.allow.push('fs=*');
     }
-    await Util.asyncForEach(inputs.allow, async allow => {
+    await Util.asyncForEach(inputs.allow, async (allow: string) => {
       args.push('--allow', allow);
     });
   }
   if (inputs.call) {
     if (!(await toolkit.buildx.versionSatisfies('>=0.16.0'))) {
-      throw new Error(`Buildx >= 0.16.0 is required to use the call flag.`);
+      throw new Error(`Buildx >= 0.16.0 is required to use the call input.`);
     }
     args.push('--call', inputs.call);
   }
-  await Util.asyncForEach(inputs.files, async file => {
+  await Util.asyncForEach(inputs.files, async (file: string) => {
     args.push('--file', file);
   });
-  await Util.asyncForEach(inputs.set, async set => {
-    args.push('--set', set);
+  await Util.asyncForEach(inputs.set, async (s: string) => {
+    args.push('--set', s);
   });
+  if (inputs.vars.length > 0) {
+    if (!(await toolkit.buildx.versionSatisfies('>=0.31.0'))) {
+      throw new Error(`Buildx >= 0.31.0 is required to use the vars input.`);
+    }
+    await Util.asyncForEach(inputs.vars, async (v: string) => {
+      args.push('--var', v);
+    });
+  }
   if (await toolkit.buildx.versionSatisfies('>=0.6.0')) {
     args.push('--metadata-file', toolkit.buildxBake.getMetadataFilePath());
   }
@@ -141,17 +154,27 @@ async function getCommonArgs(inputs: Inputs): Promise<Array<string>> {
   return args;
 }
 
-function getSourceInput(name: string): string {
-  let source = handlebars.compile(core.getInput(name))({
-    defaultContext: Context.gitContext()
+async function getBakeContext(sourceInput: string): Promise<BakeContext> {
+  const defaultContext = await new Build().gitContext();
+  let bakeContext = handlebars.compile(sourceInput)({
+    defaultContext: defaultContext
   });
-  if (!source) {
-    source = Context.gitContext();
+  if (!bakeContext) {
+    bakeContext = defaultContext;
   }
-  if (source === '.') {
-    source = '';
+  if (Util.isValidRef(bakeContext)) {
+    return {
+      remoteRef: bakeContext
+    };
   }
-  return source;
+  try {
+    fs.statSync(sourceInput).isDirectory();
+  } catch {
+    throw new Error(`Invalid source: ${sourceInput} does not exist or is not a directory.`);
+  }
+  return {
+    workdir: bakeContext
+  };
 }
 
 function noDefaultAttestations(): boolean {
