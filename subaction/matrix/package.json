@@ -20,7 +20,7 @@
     "@docker/actions-toolkit": "^0.100.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "generate-license-file": "^4.1.1"
   }
 }
