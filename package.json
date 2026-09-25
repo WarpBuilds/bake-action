@@ -10,6 +10,9 @@
     "test": "vitest run",
     "license": "generate-license-file --input package.json --output dist/licenses.txt --overwrite --ci --no-spinner --eol lf"
   },
+  "workspaces": [
+    "subaction/matrix"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/docker/bake-action.git"
@@ -25,7 +28,7 @@
   "packageManager": "yarn@4.15.0",
   "dependencies": {
     "@actions/core": "^3.0.1",
-    "@docker/actions-toolkit": "^0.92.0",
+    "@docker/actions-toolkit": "^0.100.0",
     "handlebars": "^4.7.9",
     "uuid": "^11.1.1"
   },
