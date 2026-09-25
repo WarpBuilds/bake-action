@@ -3396,7 +3396,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-xml-parser@npm:^5.7.2":
+"fast-xml-parser@npm:^5.0.7":
   version: 5.11.1
   resolution: "fast-xml-parser@npm:5.11.1"
   dependencies:
@@ -3453,7 +3453,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"flatted@npm:^3.3.4":
+"flatted@npm:^3.2.9":
   version: 3.4.4
   resolution: "flatted@npm:3.4.4"
   checksum: 10/5a6682ab87ed15e125419c61352c4bef26f310adceece03eae5f22c119d64ed47bfc0ee1948a77d0122559eaa86395ea06ef45b59bfe3db4fb13fb4cdff876de
@@ -4157,7 +4157,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.18.1":
+"lodash@npm:^4.17.15":
   version: 4.18.1
   resolution: "lodash@npm:4.18.1"
   checksum: 10/306fea53dfd39dad1f03d45ba654a2405aebd35797b673077f401edb7df2543623dc44b9effbb98f69b32152295fff725a4cec99c684098947430600c6af0c3f
@@ -5861,7 +5861,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^6.27.0":
+"undici@npm:^6.23.0, undici@npm:^6.25.0":
   version: 6.28.1
   resolution: "undici@npm:6.28.1"
   checksum: 10/a64d5972054604918448ffa1bbaa867ecd1ae9ed5aa75344a794550cc048a79949fd95ca196b961463384c49d77e924adb3643758a2aa809e43db5377a390941
