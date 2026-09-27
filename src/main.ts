@@ -182,8 +182,8 @@ actionsToolkit.run(
             // if there are no warnings found, return the first line of stdout
             err = Error(res.stdout.split('\n')[0]?.trim());
           }
-        } else if (res.stderr.length > 0) {
-          err = Error(`buildx bake failed with: ${res.stderr.match(/(.*)\s*$/)?.[0]?.trim() ?? 'unknown error'}`);
+        } else {
+          err = Error(`buildx bake failed with: ${Buildx.getErrorMessage(res.stderr)}`);
         }
       }
     });
@@ -192,7 +192,7 @@ actionsToolkit.run(
     if (metadata) {
       await core.group(`Metadata`, async () => {
         const metadatadt = JSON.stringify(metadata, null, 2);
-        core.info(metadatadt);
+        GitHub.printUntrusted(metadatadt);
         core.setOutput('metadata', metadatadt);
       });
     }

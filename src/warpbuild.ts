@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import {exec} from 'child_process';
 import {promisify} from 'util';
-import {v4 as uuidv4} from 'uuid';
+import {randomUUID} from 'crypto';
 import * as core from '@actions/core';
 
 const execAsync = promisify(exec);
@@ -62,7 +62,7 @@ export class WarpBuildRemoteBuilders {
     this.isWarpBuildRunner = this.determineRunnerType();
     // Example output: lq1cr8p2n5x7d3fy
     // Generate a more random idempotency key using UUID
-    this.idempotencyKey = uuidv4().replace(/-/g, '').substring(0, 16);
+    this.idempotencyKey = randomUUID().replace(/-/g, '').substring(0, 16);
     this.builderName = `builder-${this.idempotencyKey}`;
 
     core.debug(`API domain: ${this.apiDomain}`);
